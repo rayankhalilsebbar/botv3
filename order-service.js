@@ -10,6 +10,9 @@ class OrderService {
     this.activeBuyOrders = new Map(); // clientId -> order details
     this.activeSellOrders = new Map(); // clientId -> order details
     
+    // Map pour stocker les tailles totales des ordres d'achat
+    this.orderTotalSizes = new Map(); // clientOrderId -> totalSize
+    
     // Configurer les écouteurs d'événements
     this.setupEventListeners();
   }
@@ -105,6 +108,8 @@ class OrderService {
         
         if (side === 'buy') {
           this.activeBuyOrders.set(clientOrderId, orderDetails);
+          // Stocker la taille totale pour les ordres d'achat
+          this.orderTotalSizes.set(clientOrderId, size);
         } else if (side === 'sell') {
           this.activeSellOrders.set(clientOrderId, orderDetails);
         }
@@ -179,6 +184,8 @@ class OrderService {
         
         if (side === 'buy') {
           this.activeBuyOrders.set(clientOrderId, orderDetails);
+          // Stocker la taille totale pour les ordres d'achat
+          this.orderTotalSizes.set(clientOrderId, size);
         } else if (side === 'sell') {
           this.activeSellOrders.set(clientOrderId, orderDetails);
         }
@@ -265,10 +272,10 @@ class OrderService {
     return results.length;
   }
   
-  // Calculer la taille d'un ordre en BTC basée sur le montant en USDT
+  // Calculer la taille d'un ordre en BTC basée sur le montant en USDC
   calculateOrderSize(price) {
-    // Montant en BTC = Montant en USDT / Prix BTC
-    const rawSize = this.config.orderAmountUSDT / price;
+    // Montant en BTC = Montant en USDC / Prix BTC
+    const rawSize = this.config.orderAmountUSDC / price;
     
     // Appliquer la précision définie dans la configuration
     const precision = this.config.sizePrecision || 6;
@@ -280,21 +287,34 @@ class OrderService {
   // Gestion des événements d'ordres
   
   handleBuyOrderFilled(data) {
-    const { clientOid, price, size } = data;
+    const { clientOid, price } = data;
     
-    console.log(`✅ Ordre d'achat ${clientOid} exécuté à ${price}$ pour ${size} BTC`);
+    console.log(`✅ Ordre d'achat ${clientOid} exécuté à ${price}$`);
     
     // Retirer de la liste des ordres d'achat actifs
     this.activeBuyOrders.delete(clientOid);
     
-    // Calculer le prix de vente (prix d'achat + palier)
-    const sellPrice = parseFloat((price + this.config.priceStep).toFixed(this.config.pricePrecision));
+    // Récupérer la taille totale de l'ordre
+    const totalSize = this.orderTotalSizes.get(clientOid);
     
-    // Placer l'ordre de vente correspondant
-    this.placeOrder('sell', sellPrice, size);
-    
-    // Émettre notre propre événement pour la stratégie
-    this.wsClient.emit('strategy_buy_filled', { clientOid, price, size, sellPrice });
+    if (totalSize) {
+      // Calculer le prix de vente (prix d'achat + palier)
+      const sellPrice = parseFloat((price + this.config.priceStep).toFixed(this.config.pricePrecision));
+      
+      // Placer l'ordre de vente avec la taille totale
+      this.placeOrder('sell', sellPrice, totalSize);
+      
+      // Nettoyer le cache
+      this.orderTotalSizes.delete(clientOid);
+      
+      // Émettre l'événement pour la stratégie avec la taille totale
+      this.wsClient.emit('strategy_buy_filled', { 
+        clientOid, 
+        price,
+        sellPrice,
+        totalSize
+      });
+    }
   }
   
   handleSellOrderFilled(data) {
@@ -321,6 +341,8 @@ class OrderService {
     // Retirer l'ordre des listes actives
     if (side === 'buy') {
       this.activeBuyOrders.delete(clientOid);
+      // Nettoyer aussi le totalSize si c'est un ordre d'achat
+      this.orderTotalSizes.delete(clientOid);
     } else if (side === 'sell') {
       this.activeSellOrders.delete(clientOid);
     }
@@ -372,4 +394,4 @@ class OrderService {
   }
 }
 
-module.exports = OrderService; 
+module.exports = OrderService;
