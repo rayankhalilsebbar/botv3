@@ -215,7 +215,7 @@ class WebSocketClient extends EventEmitter {
     this.listenKeyRenewalInterval = setInterval(async () => {
       console.log('⏰ Renouvellement programmé de la listen key (toutes les 2 minutes)');
       await this.extendListenKey();
-    }, 2 * 60 * 1000);
+    }, 30 * 60 * 1000);
     
     console.log('🔄 Renouvellement automatique de la listen key configuré (toutes les 2 minutes)');
   }
