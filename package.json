@@ -1,0 +1,17 @@
+{
+  "name": "mexc-grid-bot",
+  "version": "1.0.0",
+  "description": "Bot de trading en grille pour MEXC",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "axios": "^1.8.4",
+    "protobufjs": "^7.4.0",
+    "ws": "^8.18.1"
+  },
+  "author": "",
+  "license": "ISC"
+} 
