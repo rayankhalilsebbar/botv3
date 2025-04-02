@@ -4,7 +4,7 @@ module.exports = {
   symbol: 'BTCUSDC',
   maxOrders: 20,           // Nombre maximum d'ordres actifs
   priceStep: 50,            // Écart entre les paliers en USD
-  orderAmountUSDT: 2,      // Montant fixe en USDT pour chaque ordre
+  orderAmountUSDC: 1.5,      // Montant fixe en USDC pour chaque ordre
   pricePrecision: 2,        // Nombre de décimales pour les prix
   sizePrecision: 6,         // Nombre de décimales pour la taille des ordres
   
@@ -23,8 +23,8 @@ module.exports = {
   
   // Paramètres d'authentification MEXC
   apiKeys: {
-    apiKey: process.env.MEXC_API_KEY || '',
-    secretKey: process.env.MEXC_SECRET_KEY || ''
+    apiKey: process.env.MEXC_API_KEY || 'mx0vglCG1pAONOXh9y',
+    secretKey: process.env.MEXC_SECRET_KEY || '81434cf6688b40b9aa25d4e1d88a8053'
   },
   
   // Paramètres pour les ordres en masse
