@@ -8,13 +8,16 @@ async function main() {
     console.log("\n======= ROBOT DE TRADING GRID MEXC =======");
     console.log("Initialisation des composants...");
     
-    // Initialiser le client WebSocket
+    // Créer d'abord le client WebSocket
     const wsClient = new WebSocketClient(config);
     
-    // Initialiser le service d'ordres
+    // Créer le service d'ordres avec le client WebSocket
     const orderService = new OrderService(config, wsClient);
     
-    // Initialiser la stratégie de grille
+    // Mettre à jour le client WebSocket avec le service d'ordres en utilisant le setter
+    wsClient.setOrderService(orderService);
+    
+    // Créer la stratégie de grille avec les deux services
     const gridStrategy = new GridStrategy(config, orderService, wsClient);
     
     // Connecter les WebSockets
