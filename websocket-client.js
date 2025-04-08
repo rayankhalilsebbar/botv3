@@ -3,11 +3,13 @@ const crypto = require('crypto');
 const EventEmitter = require('events');
 const protobuf = require('protobufjs');
 const axios = require('axios');
+const OrderService = require('./order-service');
 
 class WebSocketClient extends EventEmitter {
   constructor(config) {
     super();
     this.config = config;
+    this.orderService = null;  // Initialisé à null
     this.publicWs = null;
     this.privateWs = null;
     this.publicConnected = false;
@@ -427,6 +429,37 @@ class WebSocketClient extends EventEmitter {
           : parseFloat(order.quantity);
         
         console.log(`📋 Mise à jour d'ordre reçue: ${clientId || order.id}, Statut: ${status}`);
+        
+        // NOUVEAU: Mettre à jour le statut dans pendingConfirmations si l'ordre est en attente
+        if (this.orderService && this.orderService.pendingConfirmations.has(clientId)) {
+          const orderInfo = this.orderService.pendingConfirmations.get(clientId);
+          
+          // Mapper le statut MEXC vers notre énumération
+          let newStatus;
+          switch(status) {
+            case 1:
+              newStatus = OrderService.ORDER_STATUS.NEW;
+              break;
+            case 2:
+              newStatus = OrderService.ORDER_STATUS.FILLED;
+              break;
+            case 4:
+              newStatus = OrderService.ORDER_STATUS.CANCELLED;
+              break;
+            default:
+              newStatus = OrderService.ORDER_STATUS.REJECTED;
+          }
+          
+          // NOUVEAU: Log détaillé de la mise à jour du statut
+          console.log(`🔄 Mise à jour du statut de l'ordre ${clientId} de ${orderInfo.status} à ${newStatus}`);
+          
+          // Mettre à jour le statut
+          orderInfo.status = newStatus;
+          this.orderService.pendingConfirmations.set(clientId, orderInfo);
+          
+          // NOUVEAU: Log de confirmation
+          console.log(`✅ Statut de l'ordre ${clientId} mis à jour avec succès dans pendingConfirmations`);
+        }
         
         // Traiter différents types de statuts (MEXC)
         // 1 = nouvel ordre, 2 = exécuté, 4 = annulé
@@ -941,8 +974,8 @@ class WebSocketClient extends EventEmitter {
   }
   
   // Mettre à jour la méthode disconnect principale pour utiliser les nouvelles méthodes
-  disconnect() {
-    console.log('🛑 Déconnexion des WebSockets');
+  async disconnect() {
+    console.log('🔄 Déconnexion des WebSockets...');
     
     // Arrêter le traitement par lots
     if (this.batchInterval) {
@@ -950,18 +983,25 @@ class WebSocketClient extends EventEmitter {
       this.batchInterval = null;
     }
     
-    // Arrêter le renouvellement du listenKey
+    // Arrêter le renouvellement de la listenKey
     if (this.listenKeyRenewalInterval) {
       clearInterval(this.listenKeyRenewalInterval);
       this.listenKeyRenewalInterval = null;
-      console.log('🛑 Intervalle de renouvellement listenKey arrêté');
+      console.log('🔄 Renouvellement de la listenKey arrêté');
     }
     
-    // Utiliser les nouvelles méthodes de déconnexion
-    this.disconnectPublic();
-    this.disconnectPrivate();
+    // Arrêter l'intervalle de nettoyage du service d'ordres
+    if (this.orderService) {
+      this.orderService.stopCleanupInterval();
+    }
     
-    console.log('👋 WebSockets déconnectés proprement');
+    // Déconnecter les WebSockets
+    await Promise.all([
+      this.disconnectPublic(),
+      this.disconnectPrivate()
+    ]);
+    
+    console.log('✅ WebSockets déconnectés');
   }
   
   // Méthodes de désabonnement pour MEXC
@@ -1069,6 +1109,11 @@ class WebSocketClient extends EventEmitter {
   
   getCurrentPrice() {
     return this.currentPrice;
+  }
+
+  // NOUVELLE MÉTHODE: Setter pour orderService
+  setOrderService(orderService) {
+    this.orderService = orderService;
   }
 }
 
